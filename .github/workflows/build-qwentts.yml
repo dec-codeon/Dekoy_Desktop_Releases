@@ -117,6 +117,11 @@ jobs:
 
       # **만들어졌다와 돈다는 다른 말이다.** 모델 없이도 `--help` 는 떠야 한다 —
       # 안 뜨면 딸린 DLL 이 빠진 것이고, 그건 사용자 기계에서 그대로 터진다.
+      #
+      # **종료 코드로 보지 않는다.** `qwen-tts --help` 는 도움말을 다 찍고도 1 로
+      # 끝난다(맥에서도 그렇다 — 실측 2026-09-16). 세 번째 판이 이걸 「안 돈다」로
+      # 잘못 읽고 죽었다(run 35097019450). **출력에 도움말이 있는지**를 본다 —
+      # 그게 「프로세스가 떠서 제 글을 찍었다」는 진짜 증거다.
       - name: 도는지 본다
         shell: bash
         working-directory: q
@@ -127,7 +132,9 @@ jobs:
             BIN=$(find build -name "$n.exe" -type f | head -1)
             [ -n "$BIN" ] || { echo "$n.exe 가 안 만들어졌다"; exit 1; }
             echo "찾음: $BIN"
-            "$BIN" --help > /dev/null || { echo "$n 이 안 돈다"; exit 1; }
+            OUT=$("$BIN" --help 2>&1 || true)
+            case "$OUT" in *Usage:*) echo "  도움말을 찍었다";; *)
+              echo "$n 이 안 돈다 — 찍은 것:"; echo "$OUT" | head -5; exit 1;; esac
             cp "$BIN" ../out/
           done
           # 실행할 때 고르는 백엔드들 — 이게 빠지면 GPU 도 못 쓰고 CPU 판도 못 고른다.
