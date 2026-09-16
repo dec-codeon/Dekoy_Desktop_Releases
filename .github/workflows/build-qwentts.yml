@@ -85,7 +85,10 @@ jobs:
           # `pwd -W` 가 `C:/…` 꼴로 준다.
           DIR=$(dirname "$(find sh-install -name 'SPIRV-HeadersConfig.cmake' | head -1)")
           [ -n "$DIR" ] && [ -d "$DIR" ] || { echo "SPIRV-HeadersConfig.cmake 를 못 찾았다"; exit 1; }
-          ABS=$(cd "$DIR" && pwd -W 2>/dev/null || cd "$DIR" && pwd)
+          # **`A && B || C && D` 로 쓰지 않는다.** 왼쪽부터 묶여서 `((A&&B)||C)&&D` 가 되고,
+          # B 가 성공해도 D 가 또 돈다 — 값이 두 줄이 되어 GitHub 출력이 거부했다
+          # (run 35097437762: 「Invalid format '/d/a/…'」). 여기선 pwd -W 하나면 된다.
+          ABS=$(cd "$DIR" && pwd -W)
           echo "찾음: $ABS"
           echo "dir=$ABS" >> "$GITHUB_OUTPUT"
 
@@ -155,6 +158,10 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          # **이 워크플로는 checkout 을 안 한다** — 소스를 우리가 직접 clone 하니 필요가 없다.
+          # 그래서 `gh` 가 git 폴더로 저장소를 알아낼 수 없다(run 35097437762:
+          # 「fatal: not a git repository」). 이름을 env 로 준다.
+          GH_REPO: ${{ github.repository }}
           SHA: ${{ inputs.sha }}
           VULKAN_OK: ${{ steps.vulkan.outcome }}
           SPIRV_OK: ${{ steps.spirv.outcome }}
@@ -172,4 +179,4 @@ jobs:
           echo "== 올라간 것 =="
           gh release view "$TAG" --json assets -q '.assets[].name'
           echo "== Latest 가 이걸로 바뀌지 않았는지(바뀌면 앱 업데이트가 죽는다) =="
-          gh api "repos/${GITHUB_REPOSITORY}/releases/latest" -q .tag_name
+          gh api "repos/${GH_REPO}/releases/latest" -q .tag_name
